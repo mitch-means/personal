@@ -18,7 +18,7 @@
 </head>
 <body>
 
-    <h1>Lottery Data in React</h1>
+    <h1 class="lottery-center">Lottery Data in React</h1>
 
     <!-- This is where React will render -->
     <div id="root"></div>
@@ -32,7 +32,9 @@
                 this.state = {
                     data: [],
                     loading: true,
-                    error: null
+                    error: null,
+		            userNumbers: [], // Initialize as an empty array
+        		    userMega: '',    // Initialize as an empty string
                 };
             }
 
@@ -46,7 +48,12 @@
                         return response.json();
                     })
                     .then(data => {
-                        this.setState({ data: data, loading: false });
+		                const dataWithShowRow = data.map(row => ({
+        		            ...row,
+                		    showRow: true // Initially set all rows to be shown
+                		}));
+
+                        this.setState({ data: dataWithShowRow, loading: false });
                     })
                     .catch(error => {
                         this.setState({ error: error.message, loading: false });
@@ -83,27 +90,66 @@
                 // Get the user's numbers and mega number from the form
                 const { userNumbers, userMega } = this.state;
 
+				// Check if both Winning Numbers and Mega number are empty
+			    if (!userNumbers.length && !userMega) {
+        			alert("Please enter at least one number (either Winning Numbers or Mega Number).");
+        			return; // Prevent form submission if both are empty
+    			}
+
+
+			    // Normalize user numbers by stripping leading zeros
+    			const normalizedUserNumbers = userNumbers.map(num => num.replace(/^0+/, ''));
+
                 // Update the state with the input numbers and mega number
                 const newData = this.state.data.map((row) => {
-                    const winningNumbers = row.WN.split(' ');
+                	const winningNumbers = row.WN.split(' ');
+
+			        // Normalize winning numbers by stripping leading zeros
+    	   			const normalizedWinningNumbers = winningNumbers.map(num => num.replace(/^0+/, ''));
 
                     // Check if the user's numbers match the winning numbers
-                    const matchedNumbers = winningNumbers.map((num) => {
-                        return userNumbers.includes(num) ? 'lottery-matched' : '';
+                    const matchedNumbers = normalizedWinningNumbers.map((num) => {
+                        return normalizedUserNumbers.includes(num) ? 'lottery-matched' : '';
                     });
 
-                    // Check if the user's mega number matches
-                    const megaMatched = row.MB === userMega ? 'lottery-matched' : '';
+   				    // Check if the user's mega number matches
+        			const normalizedUserMega = userMega.replace(/^0+/, '');  // Normalize mega ball number
+
+			        // Normalize the winning mega ball number
+        			const normalizedWinningMega = row.MB.replace(/^0+/, ''); // Normalize mega ball in winning data
+
+        			const megaMatched = normalizedUserMega === normalizedWinningMega ? 'lottery-matched' : '';
+
+		            // Determine if we should show the row based on at least one matched number
+        		    const hasMatch = matchedNumbers.some((match) => match === 'lottery-matched') || (normalizedUserMega === normalizedWinningMega);
+
 
                     return {
                         ...row,
                         matchedNumbers,
-                        megaMatched
+                        megaMatched,
+						showRow: hasMatch
                     };
                 });
 
                 this.setState({ data: newData });
             };
+
+		    handleClear = () => {
+        		// Reset the form and show all rows again
+        		this.setState({
+            		userNumbers: [],
+            		userMega: '',
+        		}, () => {
+            		// After resetting the state, ensure all rows are shown
+            		const resetData = this.state.data.map(row => ({
+                		...row,
+                		showRow: true, // Reset showRow to true for all rows
+            		}));
+            		this.setState({ data: resetData });
+        		});
+    		};
+
 
             handleNumberChange = (event) => {
                 const value = event.target.value;
@@ -120,6 +166,13 @@
 
                 const { data, loading, error } = this.state;
 
+		        // Filter out the rows that should be visible (showRow = true)
+        		const visibleRows = data.filter(row => row.showRow);
+
+		        // Get the number of visible rows
+        		const visibleRowCount = visibleRows.length;
+
+
                 if (loading) {
                     return <div>Loading...</div>;
                 }
@@ -130,10 +183,11 @@
 
                 return (
 					<div>
-						<div>Search is not properly working at this time</div>
-                        <form onSubmit={this.handleSubmit}>
+                        <form className = "lottery-margin" onSubmit={this.handleSubmit}>
+							<strong>Search Winning Numbers</strong>
+							<br/>
                             <label>
-                                Enter 5 Numbers (separated by spaces):
+                                Enter up to 5 Numbers (separated by spaces):
                                 <input
                                     type="text"
                                     onChange={this.handleNumberChange}
@@ -150,36 +204,45 @@
                                 />
                             </label>
                             <br />
-                            <button type="submit">Submit</button>
+                            <button type="submit" className="lottery-button-spacing">Submit</button>
+		                    <button type="button" onClick={this.handleClear}>Clear</button>
+
                         </form>
 
-                    <table className="lottery-table">
-						<thead>
-							<tr className="lottery-tr">
-								<th className="lottery-th lottery-th-link" onClick={this.handleSort}>Draw Date</th>
-								<th className="lottery-th">Winning Numbers</th>
-								<th className="lottery-th">Mega Ball</th>
-							</tr>
-						</thead>
-						<tbody>
-                            {data.map((draw, index) => (
-                                <tr key={index} className="lottery-tr">
-                                    <td className="lottery-td">{draw.DD}</td>
-                                    <td className="lottery-td">
-                                        {/* Map each winning number to its own ball */}
-                                        {draw.WN.split(' ').map((num, idx) => {
-											const matchedClass = draw.matchedNumbers && draw.matchedNumbers[idx] ? draw.matchedNumbers[idx] : ''; 
-											return (
-                                            <span key={idx} className={`lottery-ball lottery-winning ${matchedClass ? matchedClass : ''}`}>{num}</span>
-											);
-                                        })}
-                                    </td>
-                                    <td className="lottery-td"><span className={`lottery-ball lottery-mega {draw.megaMatched}`}>{draw.MB}</span></td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-				</div>
+		                <div className="lottery-visible-rows">
+        	            	{/* Display the number of visible rows */}
+            	        	<strong>Visible Rows: {visibleRowCount}</strong>
+                		</div>
+
+	                    <table className="lottery-table">
+							<thead>
+								<tr className="lottery-tr">
+									<th className="lottery-th lottery-th-link" onClick={this.handleSort}>Draw Date</th>
+									<th className="lottery-th">Winning Numbers</th>
+									<th className="lottery-th">Mega Ball</th>
+								</tr>
+							</thead>
+							<tbody>
+        	                    {data.map((draw, index) => (
+									draw.showRow && (
+                	                <tr key={index} className="lottery-tr">
+                    	                <td className="lottery-td">{draw.DD}</td>
+                        	            <td className="lottery-td">
+                            	            {/* Map each winning number to its own ball */}
+                                	        {draw.WN.split(' ').map((num, idx) => {
+												const matchedClass = draw.matchedNumbers && draw.matchedNumbers[idx] ? draw.matchedNumbers[idx] : ''; 
+												return (
+                                            	<span key={idx} className={`lottery-ball lottery-winning ${matchedClass ? matchedClass : ''}`}>{num}</span>
+												);
+    	                                    })}
+        	                            </td>
+            	                        <td className="lottery-td"><span className={`lottery-ball lottery-mega {draw.megaMatched}`}>{draw.MB}</span></td>
+                	                </tr>
+									)
+                        	    ))}
+ 	                       </tbody>
+    	                </table>
+					</div>
 	            )};
         }
 
