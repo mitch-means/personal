@@ -10,7 +10,7 @@ TrackManagerApi.java : This is a Java class to help with tracks - creating, rena
 addWatermarkFile.py : The python code that runs as a Google Cloud function which creates a watermarked file
 
 
-From a test build trying to incorporate React  
+From a test build trying to use React for the first time    
 https://test-lottery-dot-test-project-311421.appspot.com/lotteryData  
 
 lotteryData.jsp  
